@@ -1,0 +1,17 @@
+[project]
+name = "era5_torch"
+version = "0.1"
+authors = [
+  { name = "Alexander Conzelmann", email = "a.conzelmann@student.uni-tuebingen.de" },
+]
+description = "PyTorch-compatible wrapper for Era5"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = []
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+ignore = ["E501"]

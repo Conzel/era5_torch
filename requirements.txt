@@ -1,0 +1,4 @@
+torch
+xarray
+torchvision
+numpy
