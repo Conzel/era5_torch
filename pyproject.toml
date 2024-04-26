@@ -8,6 +8,7 @@ description = "PyTorch-compatible wrapper for Era5"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = []
+dependencies = ["torch", "torchvision", "xarray", "numpy"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
