@@ -36,4 +36,3 @@ ds[0]
 ```
 
 Returns a sample of shape `(3,3,3)` with values varying over `(time, lat, long)`. Alternatively, to get patches, you can also create a Chunker with `ContinuousChunker((3,3))`. All chunkers have different behaviour, the `ContinuousChunker` for example returns chunks starting from the first position in the dataset (usually the (0,0) coordinate) and creates as many chunks in an orderly manner as possible by traversing the coordinates one after another. Refer to the documentation of the Chunkers to get more information.# era5_torch
-# era5_torch
