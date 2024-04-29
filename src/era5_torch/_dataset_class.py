@@ -19,7 +19,6 @@ from enum import Enum
 
 import glob
 from pathlib import Path
-from coinpp.conversion import Converter
 
 
 # taken from our large 2008 dataset
@@ -52,11 +51,15 @@ def _sample_values_to_3d_tensor(sample: xarray.DataArray) -> torch.Tensor:
     return tensor
 
 
-def normalize(arr):
+def normalize(arr: torch.Tensor | np.ndarray):
+    """Normalizes the array to be in the range [0, 1]. Uses
+    the precomputed values from the year 2008 that might not be appropriate for other datasets.
+    """
     return (arr - T_MIN) / (T_MAX - T_MIN)
 
 
-def unnormalize(arr):
+def unnormalize(arr: torch.Tensor | np.ndarray):
+    """Undoes the normalization of this package. Uses the precomputed values from the year 2008 that might not be appropriate for other datasets."""
     return arr * (T_MAX - T_MIN) + T_MIN
 
 
@@ -325,107 +328,3 @@ class _Era5Chunked(_Era5Base):
             return self._num_levels * self._chunks_per_sample
         else:
             raise ValueError(f"Invalid dimension {self._chunker.dimension}")
-
-
-class Era5Coinpp(torch.utils.data.Dataset):
-    """Taken from COIN++. Loads in a dataset of ERA5 temperatures, in the format that is used in the COIN++ paper.
-    This means a folder of three folders, train, val and test, each containing .npz files. The files are named according to the timestamp they are from,
-    in the format DD-MM-YYTHH.npz. The .npz files produce numpy arrays with the following keys:
-    - latitude: Latitude values for each pixel
-    - longitude: Longitude values for each pixel
-    - temperature: Temperature values for each pixel
-
-    Args:
-        root (string or PosixPath): Path to directory where data is stored.
-        split (string): Which split to use from train/val/test.
-        normalize (bool): Whether to normalize data to lie in [0, 1]. Defaults to True.
-    """
-
-    def __init__(
-        self,
-        root: Path,
-        split,
-        normalize=True,
-        coords_features: bool = True,
-        max_samples: Optional[int] = None,
-        feature_transform=None,
-        patch_size: Optional[int | tuple[int, int]] = None,
-    ):
-        if split not in ["train", "val", "test", "all"]:
-            raise ValueError("Invalid value for split argument")
-
-        self.root = root
-        self.split = split
-        self.normalize = normalize
-        self.coords_features = coords_features
-        self.converter = Converter("era5")
-        self.filepaths = glob.glob(str(root / f"era5_{split}/*.npz"))
-        self.filepaths.sort()  # Ensure consistent ordering of paths
-        self.max_samples = max_samples
-        self.patch_size = patch_size
-        self.feature_transform = feature_transform
-
-    def image_shape(self):
-        if self.patch_size is None:
-            return np.load(self.filepaths[0])["temperature"].shape
-        else:
-            if isinstance(self.patch_size, int):
-                return (self.patch_size, self.patch_size)
-            else:
-                return self.patch_size
-
-    def to_tensors(
-        self, n: Optional[int] = None, start: int = 0
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        coords = []
-        features = []
-        if n is None:
-            n = self.__len__() - start
-        if start + n > self.__len__():
-            raise ValueError(
-                f"Cannot get {n} samples starting at {start} from dataset of size {self.__len__()}"
-            )
-        for i in range(start, n + start):
-            c, f = self.__getitem__(i)
-            coords.append(c)
-            features.append(f)
-        return torch.stack(coords), torch.stack(features)
-
-    def _patch(self, item: torch.Tensor, channel_last: bool = True) -> torch.Tensor:
-        if self.patch_size is None:
-            return item
-
-        if channel_last:
-            item = torch.permute(item, (2, 0, 1))
-        item = T.RandomCrop(self.patch_size)(item)
-        if channel_last:
-            item = torch.permute(item, (1, 2, 0))
-        return item
-
-    def __getitem__(self, index) -> tuple[torch.Tensor, torch.Tensor]:
-        # Dictionary containing latitude, longitude and temperature
-        data = np.load(self.filepaths[index])
-        temperature = data["temperature"]  # Shape (num_lats, num_lons)
-        # Optionally normalize data
-        if self.normalize:
-            temperature = normalize(temperature)
-        # Convert to tensor and add channel dimension (1, num_lats, num_lons)
-        temperature = torch.Tensor(temperature).unsqueeze(0)
-
-        if self.coords_features:
-            coordinates, features = self.converter.to_coordinates_and_features(temperature)  # type: ignore
-            assert coordinates is not None
-            coordinates, features = (
-                self._patch(coordinates).flatten(0, 1),
-                torch.permute(self._patch(features), (2, 0, 1)),
-            )
-            if self.feature_transform is not None:
-                features = self.feature_transform(features)
-            return coordinates, features
-        else:
-            raise NotImplementedError("Only coordinates and features supported")
-
-    def __len__(self):
-        if self.max_samples is not None:
-            return self.max_samples
-        return len(self.filepaths)

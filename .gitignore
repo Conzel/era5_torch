@@ -1,4 +1,6 @@
 .ipynb_checkpoints
+dist
+build
 artifacts
 wandb
 wandb-debug.log

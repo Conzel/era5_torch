@@ -1,4 +1,4 @@
-from climate_compression.datasets import (
+from era5_torch import (
     ContinuousChunker,
     SingleChunker,
     SingleRandomWrapChunker,

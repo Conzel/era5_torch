@@ -1,6 +1,6 @@
 [project]
 name = "era5_torch"
-version = "0.1"
+version = "0.1.1"
 authors = [
   { name = "Alexander Conzelmann", email = "a.conzelmann@student.uni-tuebingen.de" },
 ]

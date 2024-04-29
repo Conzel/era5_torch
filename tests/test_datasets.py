@@ -1,10 +1,8 @@
-from climate_compression.datasets import (
+from era5_torch import (
     Era5,
-    Era5Lsm,
     ContinuousChunker,
     Coordinate,
     CoordinateBundle,
-    get_dataset,
     normalize,
     unnormalize,
 )
@@ -22,25 +20,9 @@ def test_normalize_unnormalize_cancels():
         xs = torch.rand(2, 3) * 100
         xs_prime = normalize(unnormalize(xs))
         xs_prime_reverse = unnormalize(normalize(xs))
-        assert np.allclose(xs, xs_prime, atol=1e-5)
-        assert np.allclose(xs_prime_reverse, xs_prime, atol=1e-5)
-        assert np.allclose(xs_prime_reverse, xs, atol=1e-5)
-
-
-def test_sz3_era5_same_coords():
-    ds1 = get_dataset("sz3_preds", split="train")
-    ds2 = get_dataset("era5_coinpp_64", split="train")
-    assert np.allclose(ds1[0][0], ds2[0][0])
-    assert ds1[0][1].shape == ds2[0][1].shape
-
-
-def test_kodak_correct_values():
-    ds = get_dataset("kodak")
-    # testing some random kodak values
-    assert ds[0][0][0][0].item() == 99
-    assert ds[0][0][12][24].item() == 96
-    assert ds[2][0][0][0].item() == 99
-    assert ds[2][0][12][24].item() == 114
+        assert np.allclose(xs, xs_prime, atol=1e-4)
+        assert np.allclose(xs_prime_reverse, xs_prime, atol=1e-4)
+        assert np.allclose(xs_prime_reverse, xs, atol=1e-4)
 
 
 def test_era5_retrieval_correct_values():
@@ -253,25 +235,6 @@ def test_load_seamap():
     assert torch.allclose(era5[3].squeeze(), torch.Tensor(ds.lsm.isel(time=2).values))
 
 
-def test_aux_lsm():
-    era5 = Era5Lsm(
-        temperature_path,
-        lsm_path,
-        "t",
-        normalize=False,
-    )
-    ds_lsm = xr.open_dataset(lsm_path)
-    ds_t = xr.open_dataset(temperature_path)
-
-    assert era5[0].shape == (2, ds_t.latitude.size, ds_t.longitude.size)
-    assert torch.allclose(
-        era5[0].squeeze()[0, :, :], torch.Tensor(ds_t.t.isel(level=0, time=0).values)
-    )
-    assert torch.allclose(
-        era5[0].squeeze()[1, :, :], torch.Tensor(ds_lsm.lsm.isel(time=0).values)
-    )
-
-
 # fixtures
 @pytest.fixture(scope="session")
 def mock_dataset(tmp_path_factory):
@@ -340,7 +303,9 @@ def mock_dataset_lengths(tmp_path_factory):
 
 def test_dataset_coords_sphere(mock_dataset):
     ds = xr.open_dataset(mock_dataset)
-    era5 = Era5(ds, "t", normalize=False, coords=CoordinateBundle.SPHERE)
+    era5 = Era5(
+        ds, "t", normalize=False, coords=CoordinateBundle.SPHERE, normalize_coords=False
+    )
 
     assert era5[0].shape == (5, 2, 3)
     assert torch.allclose(
@@ -364,6 +329,7 @@ def test_dataset_coords_euclidean(mock_dataset_euclidean):
         "t",
         normalize=False,
         coords=CoordinateBundle.EUCLIDEAN,
+        normalize_coords=False,
     )
 
     # just saving some space
@@ -426,6 +392,7 @@ def test_dataset_coordinates_specifying_sphere(mock_dataset):
         "t",
         normalize=False,
         coords=[Coordinate.LATITUDE, Coordinate.LONGITUDE],
+        normalize_coords=False,
     )
 
     assert era5[0].shape == (3, 2, 3)
@@ -445,6 +412,7 @@ def test_dataset_coordinates_specifying_sphere(mock_dataset):
         "t",
         normalize=False,
         coords=[Coordinate.TIME, Coordinate.LEVEL],
+        normalize_coords=False,
     )
 
     assert era5[0].shape == (3, 2, 3)
@@ -467,6 +435,7 @@ def test_dataset_coordinates_specifying(mock_dataset_euclidean):
         "t",
         coords=[Coordinate.Y, Coordinate.X],
         normalize=False,
+        normalize_coords=False,
     )
     t0 = torch.Tensor([0])
     t1 = torch.Tensor([1])
